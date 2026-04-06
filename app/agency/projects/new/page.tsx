@@ -42,7 +42,7 @@ export default function NewProjectPage() {
         const errorData = await res.json()
         setError(errorData.error || 'Ошибка при создании проекта')
       }
-    } catch (err) {
+    } catch {
       setError('Ошибка при создании проекта')
     } finally {
       setLoading(false)

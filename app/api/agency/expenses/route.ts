@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     
     const db = getDb()
     let query = 'SELECT * FROM AgencyExpense'
-    const params: any[] = []
+    const params: (string | number)[] = []
     
     if (projectId) {
       query += ' WHERE projectId = ?'

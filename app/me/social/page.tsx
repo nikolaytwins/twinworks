@@ -172,7 +172,7 @@ export default function SocialPage() {
               setSaving(true)
               try {
                 let savedCount = 0
-                let errors: string[] = []
+                const errors: string[] = []
                 
                 for (const platform of platforms) {
                   const inputKey = `quick_${platform}`

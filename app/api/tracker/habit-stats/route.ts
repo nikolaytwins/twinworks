@@ -76,7 +76,7 @@ function getWeeksInMonth(year: number, month: number): string[] {
   const weeks: string[] = []
   const firstDay = new Date(year, month - 1, 1)
   const lastDay = new Date(year, month, 0)
-  let currentDate = new Date(firstDay)
+  const currentDate = new Date(firstDay)
   while (currentDate <= lastDay) {
     const weekKey = getWeekKey(currentDate)
     if (!weeks.includes(weekKey)) weeks.push(weekKey)

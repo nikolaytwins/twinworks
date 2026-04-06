@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
     const db = getDb()
     
     // Get or create settings
-    let settings = db.prepare('SELECT id FROM expense_settings LIMIT 1').get() as any
+    const settings = db.prepare('SELECT id FROM expense_settings LIMIT 1').get() as any
     if (!settings) {
       const id = 'expense_settings_1'
       db.prepare(`

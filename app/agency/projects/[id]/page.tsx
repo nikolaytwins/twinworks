@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
@@ -44,19 +44,19 @@ function ExpenseRow({
 }: {
   expense: Expense
   roleLabels: Record<string, string>
-  onUpdate: (id: string, field: string, value: any) => void
+  onUpdate: (id: string, field: string, value: string | number | null) => void
   onDelete: (id: string) => void
 }) {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [tempValue, setTempValue] = useState('')
 
-  const handleStartEdit = (field: string, currentValue: any) => {
+  const handleStartEdit = (field: string, currentValue: string | number | null) => {
     setEditingField(field)
     setTempValue(currentValue?.toString() || '')
   }
 
   const handleSave = (field: string) => {
-    let value: any = tempValue
+    let value: string | number | null = tempValue
     if (field === 'amount') {
       value = parseFloat(tempValue) || 0
     }
@@ -196,13 +196,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true)
   const [showExpenseForm, setShowExpenseForm] = useState(false)
 
-  useEffect(() => {
-    if (id) {
-      fetchData()
-    }
-  }, [id])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [projectRes, expensesRes, detailsRes] = await Promise.all([
         fetch(`/api/agency/projects`).then(r => r.json()),
@@ -219,7 +213,13 @@ export default function ProjectPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    if (id) {
+      void fetchData()
+    }
+  }, [id, fetchData])
 
   const handleAddDetail = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -264,16 +264,18 @@ export default function ProjectPage() {
       const current = details.find(d => d.id === detailId)
       if (!current) return
 
-      let next: Partial<ProjectDetail> = {}
-      if (field === 'title') {
-        next.title = value
-      } else if (field === 'quantity') {
-        const q = parseFloat(value.replace(',', '.'))
-        next.quantity = isNaN(q) ? current.quantity : q
-      } else if (field === 'unitPrice') {
-        const p = parseFloat(value.replace(',', '.'))
-        next.unitPrice = isNaN(p) ? current.unitPrice : p
-      }
+      const next: Partial<ProjectDetail> =
+        field === 'title'
+          ? { title: value }
+          : field === 'quantity'
+            ? (() => {
+                const q = parseFloat(value.replace(',', '.'))
+                return { quantity: isNaN(q) ? current.quantity : q }
+              })()
+            : (() => {
+                const p = parseFloat(value.replace(',', '.'))
+                return { unitPrice: isNaN(p) ? current.unitPrice : p }
+              })()
 
       const updated: ProjectDetail = { ...current, ...next }
       setDetails(details.map(d => d.id === detailId ? updated : d))
@@ -358,7 +360,11 @@ export default function ProjectPage() {
     }
   }
 
-  const handleUpdateExpense = async (expenseId: string, field: string, value: any) => {
+  const handleUpdateExpense = async (
+    expenseId: string,
+    field: string,
+    value: string | number | null
+  ) => {
     try {
       const expense = expenses.find(e => e.id === expenseId)
       if (!expense) return

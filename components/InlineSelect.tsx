@@ -70,7 +70,7 @@ export default function InlineSelect({
       >
         {selectedOption?.label || value}
       </button>
-      {isOpen && typeof window !== 'undefined' && buttonRef.current && createPortal(
+      {isOpen && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[9999]"
           style={{

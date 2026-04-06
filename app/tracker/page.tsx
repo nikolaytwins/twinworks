@@ -1928,7 +1928,7 @@ export default function TrackerPage() {
                           onClick={async () => {
                             const slots = youtubeSlots || Array(4).fill(null)
                             const lastFilledIndex = slots.findLastIndex((slot: boolean | null) => slot === true)
-                            let newSlots = [...slots]
+                            const newSlots = [...slots]
                             if (lastFilledIndex !== -1) {
                               newSlots[lastFilledIndex] = null
                             } else {
@@ -1955,7 +1955,7 @@ export default function TrackerPage() {
                           onClick={async () => {
                             const slots = tgWeeks[weekKey] || Array(2).fill(null)
                             const lastFilledIndex = slots.findLastIndex((slot: boolean | null) => slot === true)
-                            let newSlots = [...slots]
+                            const newSlots = [...slots]
                             if (lastFilledIndex !== -1) {
                               newSlots[lastFilledIndex] = null
                             } else {
@@ -1984,7 +1984,7 @@ export default function TrackerPage() {
                           onClick={async () => {
                             const slots = threadsWeeks[weekKey] || Array(2).fill(null)
                             const lastFilledIndex = slots.findLastIndex((slot: boolean | null) => slot === true)
-                            let newSlots = [...slots]
+                            const newSlots = [...slots]
                             if (lastFilledIndex !== -1) {
                               newSlots[lastFilledIndex] = null
                             } else {
@@ -2019,7 +2019,7 @@ export default function TrackerPage() {
                           onClick={async () => {
                             const slots = socialWeeks[weekKey] || Array(2).fill(null)
                             const lastFilledIndex = slots.findLastIndex((slot: boolean | null) => slot === true)
-                            let newSlots = [...slots]
+                            const newSlots = [...slots]
                             if (lastFilledIndex !== -1) {
                               newSlots[lastFilledIndex] = null
                             } else {
@@ -2048,7 +2048,7 @@ export default function TrackerPage() {
                           onClick={async () => {
                             const slots = clientSearchWeeks[weekKey] || Array(5).fill(null)
                             const lastFilledIndex = slots.findLastIndex((slot: boolean | null) => slot === true)
-                            let newSlots = [...slots]
+                            const newSlots = [...slots]
                             if (lastFilledIndex !== -1) {
                               newSlots[lastFilledIndex] = null
                             } else {

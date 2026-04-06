@@ -11,11 +11,13 @@ function getDb() {
 export async function GET() {
   try {
     const db = getDb()
-    let expenses: any[] = []
-    
+    let expenses: Record<string, unknown>[] = []
+
     try {
-      expenses = db.prepare('SELECT * FROM AgencyGeneralExpense ORDER BY createdAt DESC').all() as any[]
-    } catch (e) {
+      expenses = db
+        .prepare('SELECT * FROM AgencyGeneralExpense ORDER BY createdAt DESC')
+        .all() as Record<string, unknown>[]
+    } catch {
       // Table might not exist yet
       expenses = []
     }

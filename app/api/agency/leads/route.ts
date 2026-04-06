@@ -48,7 +48,7 @@ export async function GET() {
         db.close()
         return NextResponse.json([])
       }
-    } catch (e) {
+    } catch {
       db.close()
       return NextResponse.json([])
     }

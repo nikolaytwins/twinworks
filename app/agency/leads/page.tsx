@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { formatDate } from '@/lib/utils'
+import { useCallback, useEffect, useState } from 'react'
 import InlineSelect from '@/components/InlineSelect'
 
 interface Lead {
@@ -60,12 +58,7 @@ export default function LeadsPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'week' | 'month' | 'all'>('month')
 
-  useEffect(() => {
-    fetchLeads()
-    fetchAnalytics()
-  }, [analyticsPeriod])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true)
     try {
       let startDate: string | null = null
@@ -99,9 +92,9 @@ export default function LeadsPage() {
     } finally {
       setAnalyticsLoading(false)
     }
-  }
+  }, [analyticsPeriod])
 
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     try {
       const res = await fetch('/api/agency/leads')
       
@@ -136,7 +129,12 @@ export default function LeadsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void fetchLeads()
+    void fetchAnalytics()
+  }, [fetchLeads, fetchAnalytics])
 
   const handleAddLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -201,7 +199,11 @@ export default function LeadsPage() {
     }
   }
 
-  const handleUpdateField = async (leadId: string, field: string, value: any) => {
+  const handleUpdateField = async (
+    leadId: string,
+    field: string,
+    value: string | number | boolean | null
+  ) => {
     try {
       const res = await fetch(`/api/agency/leads/${leadId}`, {
         method: 'PUT',

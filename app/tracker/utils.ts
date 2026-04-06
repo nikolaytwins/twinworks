@@ -48,7 +48,7 @@ export function getWeeksInMonth(year: number, month: number): string[] {
   const lastDay = new Date(year, month, 0)
   
   // Находим первую неделю месяца
-  let currentDate = new Date(firstDay)
+  const currentDate = new Date(firstDay)
   const firstWeek = getWeekKey(currentDate)
   weeks.push(firstWeek)
   

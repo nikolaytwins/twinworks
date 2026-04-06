@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
 import InlineSelect from '@/components/InlineSelect'
@@ -89,6 +89,15 @@ interface GeneralExpense {
   createdAt: string
 }
 
+interface AgencyExpenseRow {
+  amount?: number
+}
+
+interface ProjectDetailRow {
+  quantity?: number
+  unitPrice?: number
+}
+
 export default function AgencyPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [generalExpenses, setGeneralExpenses] = useState<GeneralExpense[]>([])
@@ -103,12 +112,7 @@ export default function AgencyPage() {
   const [selectedYear, setSelectedYear] = useState(today.getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1)
 
-  useEffect(() => {
-    fetchProjects()
-    fetchGeneralExpenses()
-  }, [selectedYear, selectedMonth])
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       const res = await fetch('/api/agency/projects')
       const data = await res.json()
@@ -128,7 +132,10 @@ export default function AgencyPage() {
           try {
             const expensesRes = await fetch(`/api/agency/expenses?projectId=${p.id}`)
             const expenses = await expensesRes.json()
-            const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+            const totalExpenses = (expenses as AgencyExpenseRow[]).reduce(
+              (sum, row) => sum + (row.amount || 0),
+              0
+            )
 
             // Детализация проекта: если есть, она приоритетнее ручной суммы
             let totalDetailsAmount = 0
@@ -136,8 +143,8 @@ export default function AgencyPage() {
               const detailsRes = await fetch(`/api/agency/project-details?projectId=${p.id}`)
               const details = await detailsRes.json()
               if (Array.isArray(details)) {
-                totalDetailsAmount = details.reduce(
-                  (sum: number, d: any) => sum + (d.quantity || 0) * (d.unitPrice || 0),
+                totalDetailsAmount = (details as ProjectDetailRow[]).reduce(
+                  (sum, row) => sum + (row.quantity || 0) * (row.unitPrice || 0),
                   0
                 )
               }
@@ -202,9 +209,9 @@ export default function AgencyPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedYear, selectedMonth])
 
-  const fetchGeneralExpenses = async () => {
+  const fetchGeneralExpenses = useCallback(async () => {
     try {
       const res = await fetch('/api/agency/general-expenses')
       const data = await res.json()
@@ -224,7 +231,12 @@ export default function AgencyPage() {
       console.error('Error fetching general expenses:', error)
       setGeneralExpenses([])
     }
-  }
+  }, [selectedYear, selectedMonth])
+
+  useEffect(() => {
+    void fetchProjects()
+    void fetchGeneralExpenses()
+  }, [fetchProjects, fetchGeneralExpenses])
 
   const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -347,7 +359,11 @@ export default function AgencyPage() {
     }
   }
 
-  const handleUpdate = async (id: string, field: string, value: any) => {
+  const handleUpdate = async (
+    id: string,
+    field: string,
+    value: string | number | boolean | null
+  ) => {
     try {
       const project = projects.find(p => p.id === id)
       if (!project) return
@@ -443,7 +459,6 @@ export default function AgencyPage() {
   
   const totalExpenses = projectExpenses + generalExpensesTotal + taxAmount
   const expectedProfit = expectedRevenue - totalExpenses
-  const actualProfit = actualRevenue - totalExpenses
 
   const roleLabels: Record<string, string> = {
     designer: 'Дизайнер',
@@ -479,11 +494,6 @@ export default function AgencyPage() {
   const clientTypeFromProjects = Array.from(
     new Set(projects.map(p => p.clientType).filter((t): t is string => Boolean(t)))
   ).filter(t => !clientTypeBaseOptions.some(o => o.value === t))
-  const clientTypeOptions: { value: string; label: string }[] = [
-    ...clientTypeBaseOptions,
-    ...clientTypeFromProjects.map(t => ({ value: t, label: t })),
-    { value: '__add__', label: '➕ Добавить...' },
-  ]
   const clientTypeDisplayOptions = [
     { value: '', label: '—' },
     ...clientTypeBaseOptions,
