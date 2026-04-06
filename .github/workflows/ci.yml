@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: "file:./prisma/ci.db"
+        run: npx prisma migrate deploy
+
+      - name: Build
+        env:
+          DATABASE_URL: "file:./prisma/ci.db"
+          OWNER_PASSWORD: ci
+          PM_PASSWORD: ci
+        run: npm run build

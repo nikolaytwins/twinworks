@@ -1,0 +1,408 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ========================================
+// PERSONAL FINANCE & GOALS
+// ========================================
+
+model PersonalAccount {
+  id        String    @id @default(cuid())
+  name      String
+  type      String    // card/cash/bank/crypto/other
+  currency  String    @default("RUB")
+  balance   Float     @default(0)
+  notes     String?   // Комментарий (откуда деньги, для типа "other")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  transactionsFrom PersonalTransaction[] @relation("FromAccount")
+  transactionsTo   PersonalTransaction[] @relation("ToAccount")
+  linkedGoals      PersonalGoal[]
+}
+
+model PersonalTransaction {
+  id            String    @id @default(cuid())
+  date          DateTime
+  type          String    // income/expense/transfer
+  amount        Float
+  currency      String    @default("RUB")
+  category      String?
+  description   String?
+  fromAccountId String?
+  toAccountId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  fromAccount   PersonalAccount? @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount     PersonalAccount? @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+}
+
+model PersonalGoal {
+  id              String    @id @default(cuid())
+  period          String    // month/quarter
+  name            String
+  targetAmount    Float
+  currentAmount   Float     @default(0) // manual
+  linkedAccountId String?   // optional: для автосчёта от баланса аккаунта
+  deadline        DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  linkedAccount   PersonalAccount? @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+}
+
+model PersonalSettings {
+  id                           String    @id @default(cuid())
+  expectedMonthlyExpenses      Float     @default(0)
+  lastConfirmedTotalAccounts   Float?    // Последний подтвержденный общий капитал
+  lastConfirmedTotalAccountsDate DateTime? // Дата подтверждения капитала
+  updatedAt                    DateTime  @updatedAt
+
+  @@map("personal_settings")
+}
+
+// ========================================
+// TEXT GOALS (CHECKBOXES)
+// ========================================
+
+model ChecklistGoal {
+  id              String    @id @default(cuid())
+  period          String    // year/quarter (Q1-Q4)/month (2026-01)/week (2026-W04)
+  title           String
+  completed       Boolean   @default(false)
+  order           Int       @default(0)
+  priority        String    @default("medium") // low, medium, high — приоритет цели
+  notes           String?   // Опциональное описание
+  optional        Boolean   @default(false) // идеально (необязательно) — отдельный блок в неделе
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("checklist_goals")
+}
+
+// ========================================
+// EXPENSE CATEGORIES & EXPECTED AMOUNTS
+// ========================================
+
+model ExpenseCategory {
+  id                String    @id @default(cuid())
+  name              String    @unique
+  type              String    // personal/business
+  expectedMonthly   Float     @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("expense_categories")
+}
+
+// ========================================
+// AGENCY MODULE
+// ========================================
+
+model AgencyProject {
+  id              String    @id @default(cuid())
+  name            String
+  totalAmount     Float     // сумма проекта
+  paidAmount      Float     @default(0) // фактически оплачено
+  deadline        DateTime?
+  status          String    @default("not_paid") // not_paid/prepaid/paid
+  serviceType     String    // site/presentation/small_task/subscription
+  clientType      String?   // постоянник / рекомендация / профи ру / нетворкинг / своя
+  paymentMethod   String?   // card/account (карта/расчетный счет)
+  clientContact   String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  expenses        AgencyExpense[]
+  details         AgencyProjectDetail[]
+}
+
+model AgencyExpense {
+  id              String    @id @default(cuid())
+  projectId       String
+  employeeName    String
+  employeeRole    String    // designer/pm/copywriter/assistant
+  amount          Float
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  project         AgencyProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+/// Детализация стоимости проекта для клиента (строки как в таблице Гугл: задача / количество / цена / сумма)
+model AgencyProjectDetail {
+  id         String   @id @default(cuid())
+  projectId  String
+  title      String   // задача / услуга
+  quantity   Float    @default(1)
+  unitPrice  Float    @default(0)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project    AgencyProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AgencyLead {
+  id              String    @id @default(cuid())
+  contact         String    // Контакт лида
+  source          String    // Источник лида
+  taskDescription String?   // Описание задачи (заголовок карточки)
+  status          String    @default("new") // new, contact_established, commercial_proposal, thinking, paid, pause
+  nextContactDate DateTime? // Дата следующего касания
+  manualDateSet   Boolean   @default(false) // Флаг, что дата установлена вручную
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("agency_leads")
+}
+
+// Отклики Profi.ru: платные отклики, возвраты, воронка до оплаты
+// Статусы по порядку: response → conversation → proposal → paid → refunded
+model ProfiResponse {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now()) // Дата отклика
+  cost           Float     // Сколько заплатил за отклик (руб)
+  refundAmount   Float     @default(0) // Сколько вернули (возврат)
+  status         String    @default("response") // response | conversation | proposal | paid | refunded | drain
+  projectAmount  Float?    // Сумма проекта (руб), когда status = paid (оплачено)
+  notes          String?
+  updatedAt      DateTime  @updatedAt
+
+  @@map("profi_responses")
+}
+
+// ========================================
+// IMPULSE MODULE
+// ========================================
+
+model ImpulseStudent {
+  id              String    @id @default(cuid())
+  name            String
+  productType     String    // тип продукта
+  totalAmount     Float     // сумма
+  paidAmount      Float     @default(0) // фактически оплачено
+  deadline        DateTime?
+  status          String    @default("not_paid") // not_paid/prepaid/paid
+  trafficSource   String?   // источник трафика: youtube / recommendations / своя
+  notes           String?   // комментарии (рассрочка и т.д.)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  expenses        ImpulseExpense[]
+}
+
+model ImpulseExpense {
+  id              String    @id @default(cuid())
+  studentId       String
+  employeeName    String
+  employeeRole    String
+  amount          Float
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  student         ImpulseStudent @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ========================================
+// MONTHLY HISTORY
+// ========================================
+
+model MonthlyHistory {
+  id                        String    @id @default(cuid())
+  year                      Int
+  month                     Int       // 1-12
+  totalAccounts             Float     @default(0)
+  cushionAmount             Float     @default(0)
+  goalsAmount               Float     @default(0)
+  personalExpenses          Float     @default(0)
+  businessExpenses          Float     @default(0)
+  agencyExpectedRevenue     Float     @default(0)
+  agencyActualRevenue       Float     @default(0)
+  agencyExpectedProfit      Float     @default(0)
+  agencyActualProfit        Float     @default(0)
+  impulseExpectedRevenue    Float     @default(0)
+  impulseActualRevenue      Float     @default(0)
+  impulseExpectedProfit     Float     @default(0)
+  impulseActualProfit       Float     @default(0)
+  totalExpectedProfit       Float     @default(0)
+  totalRevenue              Float     @default(0) // agencyExpectedRevenue + impulseExpectedRevenue
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  @@unique([year, month])
+  @@map("monthly_history")
+}
+
+// ========================================
+// SOCIAL MEDIA FOLLOWERS
+// ========================================
+
+model SocialFollowers {
+  id        String    @id @default(cuid())
+  platform  String    // instagram / youtube / telegram_channel / telegram_base / telegram_private
+  year      Int
+  month     Int       // 1-12
+  count     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([platform, year, month])
+  @@map("social_followers")
+}
+
+// ========================================
+// DAILY PLANNING
+// ========================================
+
+model DailyTask {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   // Описание задачи
+  date        DateTime  // Дата задачи
+  completed   Boolean   @default(false)
+  isKey       Boolean   @default(false) // Ключевая задача (отображается в дашборде)
+  priority    String    @default("movable") // main, important, movable
+  order       Int       @default(0) // Порядок в дне
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("daily_tasks")
+}
+
+model Call {
+  id          String    @id @default(cuid())
+  title       String    // Название/тема события
+  date        DateTime  // Дата и время начала события
+  endTime     DateTime? // Время окончания события
+  duration    Int?      // Продолжительность в минутах (может быть вычислена из date и endTime)
+  participant String?   // Участник/контакт
+  notes       String?   // Заметки
+  completed   Boolean   @default(false) // Выполнено/состоялось
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("calls")
+}
+
+// Выходные дни в планировании (показываются синей плашкой в календаре)
+model DayOff {
+  date String @id // YYYY-MM-DD
+
+  @@map("day_offs")
+}
+
+// ========================================
+// HABIT TRACKER
+// ========================================
+
+model DailyLog {
+  id                 String    @id @default(cuid())
+  date               String    @unique // YYYY-MM-DD
+  dayMode            String?   // strong/light/rest
+  stepsDone          Boolean   @default(false)
+  proteinDone        Boolean   @default(false)
+  sleepDone          Boolean   @default(false)
+  workoutType        String?   // gym/home/none
+  alcohol            Boolean   @default(false)
+  dayOff             String?   // none/partial/full
+  junkFood           Boolean   @default(false)
+  reels              Boolean   @default(false)
+  gamesDone          Boolean   @default(false)  // компьютерные игры
+  contentWritingDone  Boolean   @default(false)  // написание контента
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("daily_logs")
+}
+
+model SlotProgress {
+  id          String    @id @default(cuid())
+  periodKey   String    // YYYY-WW / YYYY-MM / YYYY-Qx
+  metricKey   String    // youtube_month/reels_week/tg_week/threads_week/workouts_week/social_week/trip_quarter / habit_<id>
+  slots       String    // JSON array: [true, false, "gym", "home", null]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([periodKey, metricKey])
+  @@map("slot_progress")
+}
+
+// Пользовательские привычки (создаются самостоятельно)
+model HabitDefinition {
+  id          String    @id @default(cuid())
+  name        String    // название привычки
+  type        String    // weekly | monthly — недельная (7 дней) или месячная (N слотов)
+  slotsCount  Int       @default(7) // для weekly: 7, для monthly: например 4
+  order       Int       @default(0) // порядок отображения
+  isMain      Boolean   @default(false) // показывать в блоке «Главные привычки»
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("habit_definitions")
+}
+
+// ========================================
+// NUTRITION MODULE
+// ========================================
+
+model NutritionFoodLog {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  dateKey          String   // YYYY-MM-DD (в таймзоне пользователя)
+  rawText          String   // исходный текст из Telegram
+  parsedJson       String?  // JSON с распарсенными позициями (строка)
+  protein          Float    @default(0)
+  fat              Float    @default(0)
+  carbs            Float    @default(0)
+  kcal             Float    @default(0)
+  confidence       Float?
+  source           String?  // gemini_estimate / manual / etc.
+  telegramUpdateId String?  @unique
+
+  @@map("nutrition_food_logs")
+}
+
+model DailyNutrition {
+  id            String   @id @default(cuid())
+  dateKey       String   @unique // YYYY-MM-DD
+  proteinTotal  Float    @default(0)
+  fatTotal      Float    @default(0)
+  carbsTotal    Float    @default(0)
+  kcalTotal     Float    @default(0)
+  proteinTarget Float    @default(140)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("daily_nutrition")
+}
+
+model NutritionSettings {
+  id                   String   @id @default(cuid())
+  telegramChatId       String?
+  timezone             String   @default("Europe/Brussels")
+  proteinTargetDefault Float    @default(140)
+  updatedAt            DateTime @updatedAt
+
+  @@map("nutrition_settings")
+}
